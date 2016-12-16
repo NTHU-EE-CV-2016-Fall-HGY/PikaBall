@@ -15,8 +15,82 @@ from obstacle.wall import Wall
 from ball.pikaBall import PikaBall
 import button
 
+
+# Kinect
+from visual import *
+import pykinect
+from pykinect import nui
+from pykinect.nui import JointId
+class Skeleton:
+    """Kinect skeleton represented as a VPython frame.
+    """
+
+    def __init__(self, f):
+        """Create a skeleton in the given VPython frame f.
+        """
+        self.frame = f
+        self.joints = [sphere(frame=f, radius=0.08, color=color.yellow)
+                       for i in range(20)]
+        self.joints[3].radius = 0.125
+        self.bones = [cylinder(frame=f, radius=0.05, color=color.yellow)
+                      for bone in _bone_ids]
+
+    def update(self):
+        """Update the skeleton joint positions in the depth sensor frame.
+
+        Return true iff the most recent sensor frame contained a tracked
+        skeleton.
+        """
+        updated = False
+        for skeleton in _kinect.skeleton_engine.get_next_frame().SkeletonData:
+            if skeleton.eTrackingState == nui.SkeletonTrackingState.TRACKED:
+
+                # Move the joints.
+                for joint, p in zip(self.joints, skeleton.SkeletonPositions):
+                    joint.pos = (p.x, p.y, p.z)
+
+                # Move the bones.
+                for bone, bone_id in zip(self.bones, _bone_ids):
+                    p1, p2 = [self.joints[id].pos for id in bone_id]
+                    bone.pos = p1
+                    bone.axis = p2 - p1
+                updated = True
+        return updated
+
+def draw_sensor(f):
+    """Draw 3D model of the Kinect sensor.
+
+    Draw the sensor in the given (and returned) VPython frame f, with
+    the depth sensor frame aligned with f.
+    """
+    box(frame=f, pos=(0, 0, 0), length=0.2794, height=0.0381, width=0.0635,
+        color=color.blue)
+    cylinder(frame=f, pos=(0, -0.05715, 0), axis=(0, 0.0127, 0), radius=0.0381,
+             color=color.blue)
+    cone(frame=f, pos=(0, -0.04445, 0), axis=(0, 0.01905, 0), radius=0.0381,
+         color=color.blue)
+    cylinder(frame=f, pos=(0, -0.05715, 0), axis=(0, 0.0381, 0), radius=0.0127,
+             color=color.blue)
+    cylinder(frame=f, pos=(-0.0635, 0, 0.03175), axis=(0, 0, 0.003),
+             radius=0.00635, color=color.red)
+    cylinder(frame=f, pos=(-0.0127, 0, 0.03175), axis=(0, 0, 0.003),
+             radius=0.00635, color=color.red)
+    cylinder(frame=f, pos=(0.0127, 0, 0.03175), axis=(0, 0, 0.003),
+             radius=0.00635, color=color.red)
+    text(frame=f, text='KINECT', pos=(0.06985, -0.00635, 0.03175),
+         align='center', height=0.0127, depth=0.003)
+    return f
+    
+
+
+
+
 def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
             buttonGroup):
+ 
+    
+    
+    
     """
     Run the main loop of game
     """
@@ -24,7 +98,7 @@ def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
     background = pygame.image.load('bg.jpg').convert()
     background = pygame.transform.scale(background, (gbv.WINWIDTH, gbv.WINHEIGHT))
     pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONUP])   # improve the FPS
-    while True:
+    while True:        
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
@@ -129,7 +203,7 @@ def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
 def main():
     global IMAGE, DISPLAYSURF, CLOCK, SCORETXT, FONT, ALPHA, NEWGAME, STARTDELAY, FLAGS
     pygame.init()
-    pygame.display.set_icon(pygame.image.load('icon.icns'))
+    pygame.display.set_icon( pygame.image.load('icon.icns') )
     FLAGS = FULLSCREEN | DOUBLEBUF
     DISPLAYSURF = pygame.display.set_mode((gbv.WINWIDTH, gbv.WINHEIGHT), FLAGS, 0)
     DISPLAYSURF.set_alpha(None)
