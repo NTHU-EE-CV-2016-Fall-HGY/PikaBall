@@ -14,82 +14,74 @@ from character.pika import Pika
 from obstacle.wall import Wall
 from ball.pikaBall import PikaBall
 import button
+import thread
+import itertools
+import ctypes
 
 
 # Kinect
-from visual import *
 import pykinect
 from pykinect import nui
 from pykinect.nui import JointId
-class Skeleton:
-    """Kinect skeleton represented as a VPython frame.
-    """
+from pygame.color import THECOLORS
+from pygame.locals import *
+KINECTEVENT = pygame.USEREVENT
+SKELETON_COLORS = [THECOLORS["red"], 
+                   THECOLORS["blue"], 
+                   THECOLORS["green"], 
+                   THECOLORS["orange"], 
+                   THECOLORS["purple"], 
+                   THECOLORS["yellow"], 
+                   THECOLORS["violet"]]
 
-    def __init__(self, f):
-        """Create a skeleton in the given VPython frame f.
-        """
-        self.frame = f
-        self.joints = [sphere(frame=f, radius=0.08, color=color.yellow)
-                       for i in range(20)]
-        self.joints[3].radius = 0.125
-        self.bones = [cylinder(frame=f, radius=0.05, color=color.yellow)
-                      for bone in _bone_ids]
+LEFT_ARM = (JointId.ShoulderCenter, 
+            JointId.ShoulderLeft, 
+            JointId.ElbowLeft, 
+            JointId.WristLeft, 
+            JointId.HandLeft)
+RIGHT_ARM = (JointId.ShoulderCenter, 
+             JointId.ShoulderRight, 
+             JointId.ElbowRight, 
+             JointId.WristRight, 
+             JointId.HandRight)
+LEFT_LEG = (JointId.HipCenter, 
+            JointId.HipLeft, 
+            JointId.KneeLeft, 
+            JointId.AnkleLeft, 
+            JointId.FootLeft)
+RIGHT_LEG = (JointId.HipCenter, 
+             JointId.HipRight, 
+             JointId.KneeRight, 
+             JointId.AnkleRight, 
+             JointId.FootRight)
+SPINE = (JointId.HipCenter, 
+         JointId.Spine, 
+         JointId.ShoulderCenter, 
+         JointId.Head)
 
-    def update(self):
-        """Update the skeleton joint positions in the depth sensor frame.
+def depth_frame_ready(frame):
+    if video_display:
+        return
 
-        Return true iff the most recent sensor frame contained a tracked
-        skeleton.
-        """
-        updated = False
-        for skeleton in _kinect.skeleton_engine.get_next_frame().SkeletonData:
-            if skeleton.eTrackingState == nui.SkeletonTrackingState.TRACKED:
+    with screen_lock:
+        address = surface_to_array(screen)
+        ctypes.memmove(address, frame.image.bits, len(address))
+        del address
+        if skeletons is not None and draw_skeleton:
+            draw_skeletons(skeletons)
+        pygame.display.update()    
 
-                # Move the joints.
-                for joint, p in zip(self.joints, skeleton.SkeletonPositions):
-                    joint.pos = (p.x, p.y, p.z)
-
-                # Move the bones.
-                for bone, bone_id in zip(self.bones, _bone_ids):
-                    p1, p2 = [self.joints[id].pos for id in bone_id]
-                    bone.pos = p1
-                    bone.axis = p2 - p1
-                updated = True
-        return updated
-
-def draw_sensor(f):
-    """Draw 3D model of the Kinect sensor.
-
-    Draw the sensor in the given (and returned) VPython frame f, with
-    the depth sensor frame aligned with f.
-    """
-    box(frame=f, pos=(0, 0, 0), length=0.2794, height=0.0381, width=0.0635,
-        color=color.blue)
-    cylinder(frame=f, pos=(0, -0.05715, 0), axis=(0, 0.0127, 0), radius=0.0381,
-             color=color.blue)
-    cone(frame=f, pos=(0, -0.04445, 0), axis=(0, 0.01905, 0), radius=0.0381,
-         color=color.blue)
-    cylinder(frame=f, pos=(0, -0.05715, 0), axis=(0, 0.0381, 0), radius=0.0127,
-             color=color.blue)
-    cylinder(frame=f, pos=(-0.0635, 0, 0.03175), axis=(0, 0, 0.003),
-             radius=0.00635, color=color.red)
-    cylinder(frame=f, pos=(-0.0127, 0, 0.03175), axis=(0, 0, 0.003),
-             radius=0.00635, color=color.red)
-    cylinder(frame=f, pos=(0.0127, 0, 0.03175), axis=(0, 0, 0.003),
-             radius=0.00635, color=color.red)
-    text(frame=f, text='KINECT', pos=(0.06985, -0.00635, 0.03175),
-         align='center', height=0.0127, depth=0.003)
-    return f
-    
+ 
 
 
 
 
 def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
             buttonGroup):
- 
-    
-    
+    skeletons = None
+    kinect = nui.Runtime()
+    kinect.skeleton_engine.enabled = True
+
     
     """
     Run the main loop of game
@@ -97,8 +89,44 @@ def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
     global NEWGAME, STARTDELAY
     background = pygame.image.load('bg.jpg').convert()
     background = pygame.transform.scale(background, (gbv.WINWIDTH, gbv.WINHEIGHT))
-    pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONUP])   # improve the FPS
+
+    pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONUP, KINECTEVENT])   # improve the FPS
+
     while True:        
+        for data in kinect.skeleton_engine.get_next_frame().SkeletonData:
+            if data.eTrackingState == nui.SkeletonTrackingState.TRACKED:
+                if (data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y) and (data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                    print 'YOOOOOOOOO'   
+                    clickButton['space'] = True
+                    clickButton['up'] = True
+
+                elif data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y:
+                    print 'Left Hand'
+                    #clickButton['left'] = True
+
+                elif data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y:
+                    print 'Right Hand'     
+                    clickButton['up'] = True
+                else:
+                    pass
+                
+                # Z
+                if (data.SkeletonPositions[JointId.Spine].z) > 3.5:
+                    print  'Back'
+                    clickButton['right'] = True
+                elif (data.SkeletonPositions[JointId.Spine].z) < 2.5 and (data.SkeletonPositions[JointId.Spine].z != 0):
+                    print  'Go'
+                    clickButton['left'] = True
+                else:
+                    print  'NO MOVE'               
+            else:
+                clickButton['up'] = False
+                clickButton['left'] = False
+                clickButton['right'] = False
+                clickButton['space'] = False
+
+                
+                
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()

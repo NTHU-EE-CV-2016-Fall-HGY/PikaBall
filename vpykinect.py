@@ -92,6 +92,7 @@ if __name__ == '__main__':
     """ 
 
     skeleton = Skeleton(frame(visible=False))
+    print frame
     #skeleton.frame.visible = False
     raised = False
     
