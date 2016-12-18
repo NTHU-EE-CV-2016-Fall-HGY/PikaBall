@@ -82,6 +82,8 @@ def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
     kinect = nui.Runtime()
     kinect.skeleton_engine.enabled = True
 
+    PERSON1 = 0
+    PERSON2 = 0
     
     """
     Run the main loop of game
@@ -91,42 +93,89 @@ def runGame(spriteGroup, wallList, pikaList, pikaBall, clickButton, txtImgs,
     background = pygame.transform.scale(background, (gbv.WINWIDTH, gbv.WINHEIGHT))
 
     pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONUP, KINECTEVENT])   # improve the FPS
-
+    past_player=[]
     while True:        
-        for data in kinect.skeleton_engine.get_next_frame().SkeletonData:
+        Frame=kinect.skeleton_engine.get_next_frame().SkeletonData
+        now_player=[]        
+        for index, data in enumerate(Frame):
             if data.eTrackingState == nui.SkeletonTrackingState.TRACKED:
-                if (data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y) and (data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
-                    print 'YOOOOOOOOO'   
-                    clickButton['space'] = True
-                    clickButton['up'] = True
+                if len(now_player)<2:
+                    now_player.append(index)
+                elif len(now_player)>2:
+                    now_player.pop(0)
+                    now_player.append(index)
+        if len(set(past_player).intersection(now_player))==2:
+            for index, data in enumerate(Frame):
+                if index==now_player[0]:
+                    if (data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y) and (data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                        print 'YOOOOOOOOO'   
+                        clickButton['up'] = True   
+                        clickButton['space'] = True   
+                    elif (data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                        clickButton['space'] = True
+                    elif (data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                        clickButton['up'] = True
+                    else:
+                        clickButton['up'] = False   
+                        clickButton['space'] = False     
 
-                elif data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y:
-                    print 'Left Hand'
-                    #clickButton['left'] = True
 
-                elif data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y:
-                    print 'Right Hand'     
-                    clickButton['up'] = True
+                    if (data.SkeletonPositions[JointId.Spine].z) > 3.05:
+                        print index, 'Back'
+                        clickButton['right'] = True
+                        clickButton['left'] = False
+                    elif (data.SkeletonPositions[JointId.Spine].z) < 2.95: 
+                        print index, 'Go' 
+                        clickButton['right'] = False
+                        clickButton['left'] = True
+                    else:
+                        print index, 'NO MOVE' 
+                        clickButton['right'] = False
+                        clickButton['left'] = False
+
+
+                elif index==now_player[1]:
+                    if (data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y) and (data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                        print 'YOOOOOOOOO'   
+                        clickButton['w'] = True   
+                        clickButton['lshift'] = True   
+                    elif (data.SkeletonPositions[JointId.HandLeft].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                        clickButton['lshift'] = True
+                    elif (data.SkeletonPositions[JointId.HandRight].y > data.SkeletonPositions[JointId.ShoulderCenter].y):
+                        clickButton['w'] = True
+                    else:
+                        clickButton['w'] = False   
+                        clickButton['lshift'] = False     
+
+
+                    if (data.SkeletonPositions[JointId.Spine].z) > 3.05:
+                        print index, 'Back'
+                        clickButton['a'] = True
+                        clickButton['d'] = False
+                    elif (data.SkeletonPositions[JointId.Spine].z) < 2.95: 
+                        print index, 'Go' 
+                        clickButton['a'] = False
+                        clickButton['d'] = True
+                    else:
+                        print index, 'NO MOVE' 
+                        clickButton['a'] = False
+                        clickButton['d'] = False
                 else:
-                    pass
-                
-                # Z
-                if (data.SkeletonPositions[JointId.Spine].z) > 3.5:
-                    print  'Back'
-                    clickButton['right'] = True
-                elif (data.SkeletonPositions[JointId.Spine].z) < 2.5 and (data.SkeletonPositions[JointId.Spine].z != 0):
-                    print  'Go'
-                    clickButton['left'] = True
-                else:
-                    print  'NO MOVE'               
-            else:
-                clickButton['up'] = False
-                clickButton['left'] = False
-                clickButton['right'] = False
-                clickButton['space'] = False
+                    print 'FUCK U'
 
-                
-                
+        else:
+            print 'tracking not finished',len(now_player)       
+            past_player=now_player
+            clickButton['up'] = False   
+            clickButton['space'] = False     
+            clickButton['right'] = False
+            clickButton['left'] = False    
+            clickButton['w'] = False   
+            clickButton['lshift'] = False              
+            clickButton['d'] = False
+            clickButton['a'] = False            
+
+
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
